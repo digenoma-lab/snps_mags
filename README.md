@@ -187,7 +187,7 @@ Adjust resource allocation (memory and CPUs) based on your system's capabilities
 | Key            | Value                                      |
 |----------------|--------------------------------------------|
 | `defaultBranch`| `main`                                     |
-| `homePage`     | `https://github.com/digenoma-lab/mag_snps` |
+| `homePage`     | `https://github.com/digenoma-lab/snps_mags` |
 | `author`       | `Alex Di Genova`                           |
 | `version`      | `0.0.1`                                    |
 
