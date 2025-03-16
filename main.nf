@@ -8,6 +8,8 @@ process FASTQC {
     //label 'process_medium'
     publishDir "$params.outdir/QC/FASTQC", mode: "copy"
 
+    container "oras://community.wave.seqera.io/library/fastqc_mosdepth:14f170d6650930e0"
+
     input:
     tuple val(sample), path(reads)
 
@@ -211,6 +213,7 @@ process DEPTH{
     
     publishDir "$params.outdir/DEPTH", mode: "copy"
 
+    container "oras://community.wave.seqera.io/library/fastqc_mosdepth:14f170d6650930e0"
     input:
     tuple val(sample), path(marked_bam)
     path reference
@@ -268,17 +271,17 @@ workflow {
     bwa_index(reference_file)
     samtools_index(reference_file)
    
-   //FASTQC(read_pairs) 
+   FASTQC(read_pairs) 
    aln_pipe(read_pairs, bwa_index.out.index, reference_file)
 
     //alignment_pipeline(read_pairs, bwa_index.out.index)
 
     qualimap(aln_pipe.out.marked_bam, reference_file)
     instrain_variant_calling(aln_pipe.out.marked_bam, reference_file, samtools_index.out.fai)
-    //DEPTH(aln_pipe.out.marked_bam, reference_file)
+    DEPTH(aln_pipe.out.marked_bam, reference_file)
    //we create a report of the alignments and mapping
    inmul=qualimap.out.qualimap_results.collect().mix(instrain_variant_calling.out.instrain_out.collect()).flatten().collect()
-   //inmul=inmul.mix(DEPTH.out.depth.collect()).flatten().collect()
+   inmul=inmul.mix(DEPTH.out.depth.collect()).flatten().collect()
    // inmul.view()
 
     multiqc(inmul)
