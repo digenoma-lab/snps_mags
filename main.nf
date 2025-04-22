@@ -120,7 +120,9 @@ process aln_pipe{
         """
    }else{
 	"""
-   bwa-mem2 mem -R '@RG\\tID:${sample}\\tSM:${sample}\\tLB:${params.rlibrary}\\tPL:${params.rplat}' -t ${task.cpus} ${index[0]} ${reads[0]} ${reads[1]} 2> ${sample}.log.bwamem | \
+   bwa-mem2 mem -R '@RG\\tID:${sample}\\tSM:${sample}\\tLB:${params.rlibrary}\\tPL:${params.rplat}' -t ${task.cpus} ${reference} ${reads[0]} ${reads[1]} 2> ${sample}.log.bwamem | \
+    samtools view -Sb - | \
+    samtools fixmate -m - - | \
     samtools sort -@ ${task.cpus} - | \
     samtools markdup -@ ${task.cpus} - ${sample}.marked.bam
     
@@ -169,7 +171,7 @@ process qualimap {
 
 process instrain_variant_calling {
     tag "${sample}"
-    publishDir "${params.outdir}/instrain", pattern: "*.{html,stb,tsv}", mode: 'copy'
+    publishDir "${params.outdir}/instrain", mode: 'copy'
 
 
     container "oras://community.wave.seqera.io/library/bwa-mem2_instrain_multiqc_qualimap_samtools:850f96dbd001458f"
@@ -178,6 +180,7 @@ process instrain_variant_calling {
     tuple val(sample), path(marked_bam)
     path reference
     path fai
+    path scf2bin
 
     output:
     path "${sample}_instrain", emit: instrain_out
@@ -199,7 +202,12 @@ process instrain_variant_calling {
         ${marked_bam} \
         ${reference} \
         -o ${sample}_instrain \
-        -p ${task.cpus} 
+        -p ${task.cpus} \
+        --database_mode \
+        --min_mapq 20 \
+       --min_read_ani 0.95 \
+       --min_genome_coverage 5 \
+       --stb ${scf2bin}
     """
     }
 }
@@ -238,7 +246,7 @@ process multiqc {
     tag "Generating MultiQC report"
     publishDir "${params.outdir}/multiqc", mode: 'copy'
 
-    container "oras://community.wave.seqera.io/library/bwa-mem2_instrain_multiqc_qualimap_samtools:850f96dbd001458f"
+    //container "oras://community.wave.seqera.io/library/bwa-mem2_instrain_multiqc_qualimap_samtools:850f96dbd001458f"
 
     input:
     path "*"
@@ -255,7 +263,7 @@ process multiqc {
        """
     }else{
     """
-    multiqc . -f -o . --interactive
+    multiqc . -f -o . 
     """
     }
 }
@@ -274,7 +282,8 @@ workflow {
     //alignment_pipeline(read_pairs, bwa_index.out.index)
 
     qualimap(aln_pipe.out.marked_bam, reference_file)
-    instrain_variant_calling(aln_pipe.out.marked_bam, reference_file, samtools_index.out.fai)
+    scf2bin=file(params.stb)
+    instrain_variant_calling(aln_pipe.out.marked_bam, reference_file, samtools_index.out.fai,scf2bin)
     //DEPTH(aln_pipe.out.marked_bam, reference_file)
    //we create a report of the alignments and mapping
    inmul=qualimap.out.qualimap_results.collect().mix(instrain_variant_calling.out.instrain_out.collect()).flatten().collect()
